@@ -7,6 +7,12 @@ import api from '../../api/axios';
 
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }), getDay, locales: {} });
 
+// Distinct colors per employee (cycles through if >10)
+const EMP_COLORS = [
+  '#2563eb','#16a34a','#dc2626','#9333ea','#ea580c',
+  '#0891b2','#65a30d','#db2777','#d97706','#0f766e',
+];
+
 export default function Scheduler() {
   const [events, setEvents] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -19,9 +25,15 @@ export default function Scheduler() {
   const [stages, setStages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [warning, setWarning] = useState('');
+  const [empColorMap, setEmpColorMap] = useState({});
 
   useEffect(() => {
-    api.get('/users?role=employee').then(r => setEmployees(r.data));
+    api.get('/users?role=employee').then(r => {
+      setEmployees(r.data);
+      const map = {};
+      r.data.forEach((e, i) => { map[e._id] = EMP_COLORS[i % EMP_COLORS.length]; });
+      setEmpColorMap(map);
+    });
     api.get('/clients').then(r => setClients(r.data.filter(c => c.status === 'active')));
   }, []);
 
@@ -35,6 +47,7 @@ export default function Scheduler() {
       start: new Date(e.date),
       end: new Date(e.date),
       resource: e,
+      employeeId: e.employeeId?._id,
     })));
   }, []);
 
@@ -63,12 +76,32 @@ export default function Scheduler() {
     setModal(true);
   };
 
+  const openEdit = (event) => {
+    setSelectedEvent(event);
+    const r = event.resource;
+    setForm({ date: format(new Date(r.date), 'yyyy-MM-dd'), employeeId: r.employeeId?._id, clientId: r.clientId?._id, clientStandardId: r.clientStandardId, stageId: r.stageId?._id, notes: r.notes || '' });
+    // Load standards for this client so dropdowns work
+    api.get(`/clients/${r.clientId?._id}`).then(res => {
+      const stds = res.data.standards || [];
+      setClientStandards(stds);
+      const cs = stds.find(s => s._id === r.clientStandardId);
+      setStages(cs?.stages || []);
+    });
+    setWarning('');
+    setModal(true);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await api.post('/scheduler', form);
-      if (res.data.warning) setWarning(res.data.warning);
-      else setModal(false);
+      if (selectedEvent) {
+        await api.put(`/scheduler/${selectedEvent.id}`, form);
+        setModal(false);
+      } else {
+        const res = await api.post('/scheduler', form);
+        if (res.data.warning) setWarning(res.data.warning);
+        else setModal(false);
+      }
       loadEvents(currentDate);
     } catch (err) { alert(err.response?.data?.message || 'Error'); }
     finally { setSaving(false); }
@@ -82,9 +115,12 @@ export default function Scheduler() {
     loadEvents(currentDate);
   };
 
+  // Legend
+  const legend = employees.filter(e => empColorMap[e._id]);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">Scheduler</h1>
           <p className="text-sm text-gray-500">Click any date to assign an employee</p>
@@ -95,7 +131,24 @@ export default function Scheduler() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" style={{ height: 620 }}>
+      {/* Employee color legend */}
+      {legend.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 mb-4 flex flex-wrap gap-3">
+          {legend.map(e => (
+            <div key={e._id} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: empColorMap[e._id] }} />
+              <span className="text-xs text-gray-600">{e.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" style={{ height: 720 }}>
+        <style>{`
+          .rbc-month-row { min-height: 120px !important; }
+          .rbc-event { margin-bottom: 2px !important; padding: 2px 5px !important; }
+          .rbc-show-more { font-size: 11px; color: #2563eb; }
+        `}</style>
         <Calendar
           localizer={localizer}
           events={events}
@@ -103,14 +156,16 @@ export default function Scheduler() {
           endAccessor="end"
           onSelectSlot={openNew}
           selectable
-          onSelectEvent={(event) => {
-            setSelectedEvent(event);
-            const r = event.resource;
-            setForm({ date: format(new Date(r.date), 'yyyy-MM-dd'), employeeId: r.employeeId?._id, clientId: r.clientId?._id, clientStandardId: r.clientStandardId, stageId: r.stageId?._id, notes: r.notes || '' });
-            setModal(true);
-          }}
+          onSelectEvent={openEdit}
           onNavigate={(date) => setCurrentDate(date)}
-          eventPropGetter={() => ({ style: { backgroundColor: '#2563eb', borderRadius: '4px', fontSize: '11px' } })}
+          eventPropGetter={(event) => ({
+            style: {
+              backgroundColor: empColorMap[event.employeeId] || '#2563eb',
+              borderRadius: '4px',
+              fontSize: '11px',
+              border: 'none',
+            }
+          })}
         />
       </div>
 
@@ -135,7 +190,7 @@ export default function Scheduler() {
             </select>
           </FormField>
           {clientStandards.length > 0 && (
-            <FormField label="Standard" required>
+            <FormField label="Standard">
               <select value={form.clientStandardId} onChange={e => onStandardChange(e.target.value)} className={selectCls}>
                 <option value="">Select standard...</option>
                 {clientStandards.map(cs => <option key={cs._id} value={cs._id}>{cs.standardId?.name}</option>)}
@@ -143,7 +198,7 @@ export default function Scheduler() {
             </FormField>
           )}
           {stages.length > 0 && (
-            <FormField label="Stage" required>
+            <FormField label="Stage">
               <select value={form.stageId} onChange={e => setForm({ ...form, stageId: e.target.value })} className={selectCls}>
                 <option value="">Select stage...</option>
                 {stages.map(s => <option key={s._id} value={s.stageId?._id}>{s.stageId?.name}</option>)}
@@ -154,14 +209,14 @@ export default function Scheduler() {
             <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className={inputCls} />
           </FormField>
           <div className="flex justify-between items-center pt-2">
-            {selectedEvent ? (
-              <button onClick={handleDelete} className="text-sm text-red-500 hover:text-red-700">Delete</button>
-            ) : <span />}
+            {selectedEvent
+              ? <button onClick={handleDelete} className="text-sm text-red-500 hover:text-red-700">Delete</button>
+              : <span />}
             <div className="flex gap-3">
               <button onClick={() => { setModal(false); setSelectedEvent(null); }} className="px-4 py-2 text-sm border rounded-lg">Cancel</button>
               <button onClick={handleSave} disabled={saving || !form.date || !form.employeeId || !form.clientId}
                 className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg disabled:opacity-50">
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? 'Saving...' : selectedEvent ? 'Update' : 'Save'}
               </button>
             </div>
           </div>

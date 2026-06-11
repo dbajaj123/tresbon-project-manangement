@@ -653,3 +653,74 @@ exports.exportExpenseExcel = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// ---- MONTHLY WORKDAYS REPORT ----
+// Returns for a given month: total calendar days, workable days (Mon-Fri), days utilised per employee
+exports.monthlyWorkdays = async (req, res) => {
+  try {
+    const { year, month } = req.query; // month = 1-12
+    if (!year || !month) return res.status(400).json({ message: 'year and month required' });
+
+    const y = parseInt(year), m = parseInt(month);
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0); // last day of month
+    const totalDays = endDate.getDate();
+
+    // Count workable days (Mon-Fri, excluding weekends)
+    let workableDays = 0;
+    for (let d = 1; d <= totalDays; d++) {
+      const day = new Date(y, m - 1, d).getDay();
+      if (day !== 0 && day !== 6) workableDays++;
+    }
+
+    // Get all scheduler entries for this month
+    const entries = await SchedulerEntry.find({
+      companyId: req.companyId,
+      date: { $gte: startDate, $lte: endDate },
+    }).populate('employeeId', 'name designation');
+
+    // Total days utilised
+    const totalUtilised = entries.length;
+
+    // Per employee breakdown
+    const empMap = {};
+    entries.forEach(e => {
+      if (!e.employeeId) return;
+      const empId = e.employeeId._id.toString();
+      if (!empMap[empId]) {
+        empMap[empId] = {
+          _id: empId,
+          name: e.employeeId.name,
+          designation: e.employeeId.designation,
+          daysUtilised: 0,
+        };
+      }
+      empMap[empId].daysUtilised++;
+    });
+
+    const employeeBreakdown = Object.values(empMap).map(e => ({
+      ...e,
+      utilizationPct: workableDays > 0 ? Math.round((e.daysUtilised / workableDays) * 100) : 0,
+    })).sort((a, b) => b.daysUtilised - a.daysUtilised);
+
+    // All employees (including those with 0 days)
+    const allEmployees = await User.find({ companyId: req.companyId, role: 'employee', status: 'active' }).select('name designation');
+    const fullBreakdown = allEmployees.map(e => {
+      const found = empMap[e._id.toString()];
+      return found || { _id: e._id, name: e.name, designation: e.designation, daysUtilised: 0, utilizationPct: 0 };
+    }).sort((a, b) => b.daysUtilised - a.daysUtilised);
+
+    res.json({
+      year: y,
+      month: m,
+      monthName: startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      totalDays,
+      workableDays,
+      totalUtilised,
+      overallUtilizationPct: workableDays > 0 ? Math.round((totalUtilised / (workableDays * (fullBreakdown.length || 1))) * 100) : 0,
+      employeeBreakdown: fullBreakdown,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

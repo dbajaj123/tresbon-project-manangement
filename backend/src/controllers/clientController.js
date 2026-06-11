@@ -129,3 +129,28 @@ exports.updateStage = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// Delete a stage from a client-standard
+exports.deleteStage = async (req, res) => {
+  try {
+    await ClientStandardStage.findOneAndDelete({ _id: req.params.stageId, companyId: req.companyId });
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Update a client-standard (dates, status)
+exports.updateStandard = async (req, res) => {
+  try {
+    const cs = await ClientStandard.findOneAndUpdate(
+      { _id: req.params.csId, companyId: req.companyId },
+      req.body,
+      { new: true }
+    );
+    if (!cs) return res.status(404).json({ message: 'Standard not found' });
+    res.json(cs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

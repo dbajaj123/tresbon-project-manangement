@@ -56,7 +56,9 @@ router.put('/clients/:id', ...scoped, requireRole('admin', 'superadmin'), client
 router.patch('/clients/:id/toggle-status', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.toggleStatus);
 router.post('/clients/:id/standards', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.assignStandard);
 router.post('/clients/:id/stages', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.assignStages);
+router.put('/clients/:id/standards/:csId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.updateStandard);
 router.put('/clients/stages/:stageId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.updateStage);
+router.delete('/clients/stages/:stageId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.deleteStage);
 
 // ---- SCHEDULER ----
 router.get('/scheduler', ...scoped, schedulerCtrl.list);
@@ -85,5 +87,6 @@ router.get('/reports/client/pdf', ...scoped, reportCtrl.exportClientPDF);
 router.get('/reports/employee/pdf', ...scoped, reportCtrl.exportEmployeePDF);
 router.get('/reports/expenses/pdf', ...scoped, reportCtrl.exportExpensePDF);
 router.get('/reports/expenses/excel', ...scoped, reportCtrl.exportExpenseExcel);
+router.get('/reports/monthly', ...scoped, reportCtrl.monthlyWorkdays);
 
 module.exports = router;
