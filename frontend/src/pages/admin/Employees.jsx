@@ -10,18 +10,48 @@ const PRESET_COLORS = [
   '#7c3aed','#b45309','#0369a1','#15803d','#be185d',
 ];
 
+const emptyForm = { name: '', email: '', password: '', designation: '', dateOfJoining: '', dateOfLeaving: '', qualifications: '', color: '#2563eb' };
+
+function ColorPicker({ value, onChange }) {
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {PRESET_COLORS.map(c => (
+          <button key={c} type="button" onClick={() => onChange(c)}
+            className={`w-7 h-7 rounded-full border-2 transition-all ${value === c ? 'border-gray-800 scale-110' : 'border-transparent'}`}
+            style={{ backgroundColor: c }} />
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <input type="color" value={value} onChange={e => onChange(e.target.value)}
+          className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+        <span className="text-xs text-gray-400">Custom colour</span>
+        <div className="w-6 h-6 rounded-full border border-gray-200 ml-1" style={{ backgroundColor: value }} />
+      </div>
+    </div>
+  );
+}
+
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
+  const [leftEmployees, setLeftEmployees] = useState([]);
+  const [showLeft, setShowLeft] = useState(false);
   const [modal, setModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', designation: '', dateOfJoining: '', qualifications: '', color: '#2563eb' });
+  const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   const load = async () => {
-    const { data } = await api.get('/users?role=employee');
-    setEmployees(data);
+    const [active, all] = await Promise.all([
+      api.get('/users?role=employee'),
+      api.get('/users?role=employee&includeLeft=true'),
+    ]);
+    setEmployees(active.data);
+    // Left = in all but not in active
+    const activeIds = new Set(active.data.map(e => e._id));
+    setLeftEmployees(all.data.filter(e => !activeIds.has(e._id)));
   };
   useEffect(() => { load(); }, []);
 
@@ -30,7 +60,7 @@ export default function Employees() {
     try {
       await api.post('/users', { ...form, role: 'employee' });
       setModal(false);
-      setForm({ name: '', email: '', password: '', designation: '', dateOfJoining: '', qualifications: '', color: '#2563eb' });
+      setForm(emptyForm);
       load();
     } catch (err) { alert(err.response?.data?.message || 'Error'); }
     finally { setSaving(false); }
@@ -46,26 +76,53 @@ export default function Employees() {
     finally { setSaving(false); }
   };
 
-  const handleToggle = async (id) => {
-    await api.patch(`/users/${id}/toggle-status`);
-    load();
-  };
+  const EmployeeRow = ({ e, showEdit = true }) => (
+    <tr key={e._id} className="hover:bg-gray-50">
+      <td className="px-4 py-3">
+        <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: e.color || '#2563eb' }} />
+      </td>
+      <td className="px-4 py-3 font-medium cursor-pointer" onClick={() => navigate(`/admin/employees/${e._id}`)}>{e.name}</td>
+      <td className="px-4 py-3 text-gray-600">{e.email}</td>
+      <td className="px-4 py-3 text-gray-600">{e.designation || '-'}</td>
+      <td className="px-4 py-3 text-gray-600">{e.dateOfJoining ? new Date(e.dateOfJoining).toLocaleDateString() : '-'}</td>
+      <td className="px-4 py-3 text-gray-600">
+        {e.dateOfLeaving
+          ? <span className="text-xs font-medium text-red-500">{new Date(e.dateOfLeaving).toLocaleDateString()}</span>
+          : <span className="text-xs text-gray-300">—</span>}
+      </td>
+      <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
+      <td className="px-4 py-3">
+        {showEdit && (
+          <div className="flex gap-2 items-center">
+            <button onClick={() => {
+              setEditModal(e);
+              setEditForm({
+                name: e.name, designation: e.designation || '',
+                dateOfJoining: e.dateOfJoining?.split('T')[0] || '',
+                dateOfLeaving: e.dateOfLeaving?.split('T')[0] || '',
+                qualifications: e.qualifications || '',
+                color: e.color || '#2563eb',
+              });
+            }} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+              <Pencil size={14} />
+            </button>
+            <button onClick={() => navigate(`/admin/employees/${e._id}`)} className="text-gray-400">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
 
-  const ColorPicker = ({ value, onChange }) => (
-    <div>
-      <div className="flex flex-wrap gap-2 mb-2">
-        {PRESET_COLORS.map(c => (
-          <button key={c} type="button" onClick={() => onChange(c)}
-            className={`w-7 h-7 rounded-full border-2 transition-all ${value === c ? 'border-gray-800 scale-110' : 'border-transparent'}`}
-            style={{ backgroundColor: c }} />
+  const tableHead = (
+    <thead className="bg-gray-50 border-b">
+      <tr>
+        {['', 'Name', 'Email', 'Designation', 'Date of Joining', 'Date of Leaving', 'Status', ''].map((h, i) => (
+          <th key={i} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
         ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <input type="color" value={value} onChange={e => onChange(e.target.value)}
-          className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
-        <span className="text-xs text-gray-400">Custom colour</span>
-      </div>
-    </div>
+      </tr>
+    </thead>
   );
 
   return (
@@ -79,49 +136,40 @@ export default function Employees() {
         }
       />
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Active employees */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+        <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+          <span className="text-sm font-medium">Active Employees ({employees.length})</span>
+        </div>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              {['', 'Name', 'Email', 'Designation', 'Date of Joining', 'Status', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
+          {tableHead}
           <tbody className="divide-y divide-gray-50">
-            {employees.map(e => (
-              <tr key={e._id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: e.color || '#2563eb' }} />
-                </td>
-                <td className="px-4 py-3 font-medium cursor-pointer" onClick={() => navigate(`/admin/employees/${e._id}`)}>{e.name}</td>
-                <td className="px-4 py-3 text-gray-600">{e.email}</td>
-                <td className="px-4 py-3 text-gray-600">{e.designation || '-'}</td>
-                <td className="px-4 py-3 text-gray-600">{e.dateOfJoining ? new Date(e.dateOfJoining).toLocaleDateString() : '-'}</td>
-                <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditModal(e); setEditForm({ name: e.name, designation: e.designation || '', dateOfJoining: e.dateOfJoining?.split('T')[0] || '', qualifications: e.qualifications || '', color: e.color || '#2563eb' }); }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => handleToggle(e._id)}
-                      className={`text-xs px-2 py-1 rounded ${e.status === 'active' ? 'text-red-500 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
-                      {e.status === 'active' ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button onClick={() => navigate(`/admin/employees/${e._id}`)} className="text-gray-400">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {employees.map(e => <EmployeeRow key={e._id} e={e} />)}
             {employees.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No employees yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No active employees</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Left employees toggle */}
+      {leftEmployees.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <button onClick={() => setShowLeft(!showLeft)}
+            className="w-full px-5 py-3 border-b bg-gray-50 flex items-center justify-between text-sm font-medium text-gray-500 hover:bg-gray-100">
+            <span>Former Employees ({leftEmployees.length})</span>
+            <span>{showLeft ? '▲' : '▼'}</span>
+          </button>
+          {showLeft && (
+            <table className="w-full text-sm">
+              {tableHead}
+              <tbody className="divide-y divide-gray-50">
+                {leftEmployees.map(e => <EmployeeRow key={e._id} e={e} />)}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* Add Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="Add Employee" size="lg">
@@ -146,10 +194,13 @@ export default function Employees() {
             <FormField label="Date of Joining">
               <input type="date" value={form.dateOfJoining} onChange={e => setForm({ ...form, dateOfJoining: e.target.value })} className={inputCls} />
             </FormField>
-            <FormField label="Qualifications">
-              <input value={form.qualifications} onChange={e => setForm({ ...form, qualifications: e.target.value })} className={inputCls} />
+            <FormField label="Date of Leaving">
+              <input type="date" value={form.dateOfLeaving} onChange={e => setForm({ ...form, dateOfLeaving: e.target.value })} className={inputCls} />
             </FormField>
           </div>
+          <FormField label="Qualifications">
+            <input value={form.qualifications} onChange={e => setForm({ ...form, qualifications: e.target.value })} className={inputCls} />
+          </FormField>
           <FormField label="Calendar Colour">
             <ColorPicker value={form.color} onChange={c => setForm({ ...form, color: c })} />
           </FormField>
@@ -178,13 +229,19 @@ export default function Employees() {
             <FormField label="Date of Joining">
               <input type="date" value={editForm.dateOfJoining || ''} onChange={e => setEditForm({ ...editForm, dateOfJoining: e.target.value })} className={inputCls} />
             </FormField>
-            <FormField label="Qualifications">
-              <input value={editForm.qualifications || ''} onChange={e => setEditForm({ ...editForm, qualifications: e.target.value })} className={inputCls} />
+            <FormField label="Date of Leaving">
+              <input type="date" value={editForm.dateOfLeaving || ''} onChange={e => setEditForm({ ...editForm, dateOfLeaving: e.target.value })} className={inputCls} />
             </FormField>
           </div>
+          <FormField label="Qualifications">
+            <input value={editForm.qualifications || ''} onChange={e => setEditForm({ ...editForm, qualifications: e.target.value })} className={inputCls} />
+          </FormField>
           <FormField label="Calendar Colour">
             <ColorPicker value={editForm.color || '#2563eb'} onChange={c => setEditForm({ ...editForm, color: c })} />
           </FormField>
+          <div className="p-3 bg-yellow-50 rounded-lg text-xs text-yellow-700">
+            Setting a past date of leaving will automatically mark this employee as inactive and exclude them from reports and scheduler.
+          </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setEditModal(null)} className="px-4 py-2 text-sm border rounded-lg">Cancel</button>
             <button onClick={handleEdit} disabled={saving}

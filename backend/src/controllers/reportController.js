@@ -704,7 +704,7 @@ exports.monthlyWorkdays = async (req, res) => {
     })).sort((a, b) => b.daysUtilised - a.daysUtilised);
 
     // All employees (including those with 0 days)
-    const allEmployees = await User.find({ companyId: req.companyId, role: 'employee', status: 'active' }).select('name designation');
+    const allEmployees = await User.find({ companyId: req.companyId, role: 'employee', status: 'active', $or: [{ dateOfLeaving: null }, { dateOfLeaving: { $gt: new Date() } }] }).select('name designation');
     const fullBreakdown = allEmployees.map(e => {
       const found = empMap[e._id.toString()];
       return found || { _id: e._id, name: e.name, designation: e.designation, daysUtilised: 0, utilizationPct: 0 };

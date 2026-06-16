@@ -1,6 +1,7 @@
 const SchedulerEntry = require('../models/SchedulerEntry');
 
-// Get entries for a date range
+const POPULATE_EMPLOYEE = 'name designation color';
+
 exports.list = async (req, res) => {
   try {
     const { startDate, endDate, employeeId } = req.query;
@@ -11,7 +12,7 @@ exports.list = async (req, res) => {
     if (employeeId) filter.employeeId = employeeId;
 
     const entries = await SchedulerEntry.find(filter)
-      .populate('employeeId', 'name designation')
+      .populate('employeeId', POPULATE_EMPLOYEE)
       .populate('clientId', 'name')
       .populate('stageId', 'name')
       .populate('clientStandardId')
@@ -25,9 +26,14 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { date, employeeId, clientId, clientStandardId, stageId, notes } = req.body;
+    const { date, employeeId, clientId, notes } = req.body;
+    const clientStandardId = req.body.clientStandardId || null;
+    const stageId = req.body.stageId || null;
 
-    // Overbooking check: warn if employee has 3+ entries on same day
+    if (!date || !employeeId || !clientId) {
+      return res.status(400).json({ message: 'Date, employee and client are required' });
+    }
+
     const existingCount = await SchedulerEntry.countDocuments({
       companyId: req.companyId,
       employeeId,
@@ -47,7 +53,7 @@ exports.create = async (req, res) => {
     });
 
     const populated = await entry.populate([
-      { path: 'employeeId', select: 'name designation' },
+      { path: 'employeeId', select: POPULATE_EMPLOYEE },
       { path: 'clientId', select: 'name' },
       { path: 'stageId', select: 'name' },
     ]);
@@ -63,7 +69,6 @@ exports.update = async (req, res) => {
     const entry = await SchedulerEntry.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!entry) return res.status(404).json({ message: 'Entry not found' });
 
-    // Employees can only edit their own entries
     if (req.user.role === 'employee' && entry.employeeId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'You can only edit your own schedule entries' });
     }

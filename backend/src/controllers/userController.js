@@ -1,9 +1,24 @@
 const User = require('../models/User');
 
+// Helper: filter out employees who have left
+const activeFilter = () => ({
+  $or: [
+    { dateOfLeaving: null },
+    { dateOfLeaving: { $gt: new Date() } },
+  ]
+});
+
 exports.list = async (req, res) => {
   try {
     const filter = { companyId: req.companyId };
     if (req.query.role) filter.role = req.query.role;
+
+    // If fetching employees, exclude those who have left (unless ?includeLeft=true)
+    if (req.query.role === 'employee' && req.query.includeLeft !== 'true') {
+      filter.status = 'active';
+      Object.assign(filter, activeFilter());
+    }
+
     const users = await User.find(filter).select('-password').sort({ name: 1 });
     res.json(users);
   } catch (err) {
@@ -23,14 +38,14 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { name, email, password, role, designation, dateOfJoining, qualifications } = req.body;
+    const { name, email, password, role, designation, dateOfJoining, dateOfLeaving, qualifications, color } = req.body;
     if (!name || !email || !password) return res.status(400).json({ message: 'Missing required fields' });
-    // Only admin can create employees; superadmin handled via company creation
     const user = await User.create({
       companyId: req.companyId,
       name, email, password,
       role: role || 'employee',
-      designation, dateOfJoining, qualifications,
+      designation, dateOfJoining, dateOfLeaving, qualifications,
+      color: color || '#2563eb',
     });
     res.status(201).json({ ...user.toObject(), password: undefined });
   } catch (err) {
@@ -45,7 +60,11 @@ exports.update = async (req, res) => {
     const user = await User.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!user) return res.status(404).json({ message: 'User not found' });
     Object.assign(user, rest);
-    if (password) user.password = password; // triggers pre-save hash
+    if (password) user.password = password;
+    // If dateOfLeaving is set and in the past, auto-set status to inactive
+    if (rest.dateOfLeaving && new Date(rest.dateOfLeaving) < new Date()) {
+      user.status = 'inactive';
+    }
     await user.save();
     const updated = await User.findById(user._id).select('-password');
     res.json(updated);
