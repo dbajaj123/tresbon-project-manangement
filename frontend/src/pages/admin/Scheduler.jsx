@@ -7,12 +7,6 @@ import api from '../../api/axios';
 
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }), getDay, locales: {} });
 
-// Distinct colors per employee (cycles through if >10)
-const EMP_COLORS = [
-  '#2563eb','#16a34a','#dc2626','#9333ea','#ea580c',
-  '#0891b2','#65a30d','#db2777','#d97706','#0f766e',
-];
-
 export default function Scheduler() {
   const [events, setEvents] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -25,15 +19,9 @@ export default function Scheduler() {
   const [stages, setStages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [warning, setWarning] = useState('');
-  const [empColorMap, setEmpColorMap] = useState({});
 
   useEffect(() => {
-    api.get('/users?role=employee').then(r => {
-      setEmployees(r.data);
-      const map = {};
-      r.data.forEach((e, i) => { map[e._id] = EMP_COLORS[i % EMP_COLORS.length]; });
-      setEmpColorMap(map);
-    });
+    api.get('/users?role=employee').then(r => setEmployees(r.data));
     api.get('/clients').then(r => setClients(r.data.filter(c => c.status === 'active')));
   }, []);
 
@@ -48,6 +36,7 @@ export default function Scheduler() {
       end: new Date(e.date),
       resource: e,
       employeeId: e.employeeId?._id,
+      employeeColor: e.employeeId?.color || '#2563eb',
     })));
   }, []);
 
@@ -80,7 +69,6 @@ export default function Scheduler() {
     setSelectedEvent(event);
     const r = event.resource;
     setForm({ date: format(new Date(r.date), 'yyyy-MM-dd'), employeeId: r.employeeId?._id, clientId: r.clientId?._id, clientStandardId: r.clientStandardId, stageId: r.stageId?._id, notes: r.notes || '' });
-    // Load standards for this client so dropdowns work
     api.get(`/clients/${r.clientId?._id}`).then(res => {
       const stds = res.data.standards || [];
       setClientStandards(stds);
@@ -115,9 +103,6 @@ export default function Scheduler() {
     loadEvents(currentDate);
   };
 
-  // Legend
-  const legend = employees.filter(e => empColorMap[e._id]);
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -132,22 +117,23 @@ export default function Scheduler() {
       </div>
 
       {/* Employee color legend */}
-      {legend.length > 0 && (
+      {employees.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 mb-4 flex flex-wrap gap-3">
-          {legend.map(e => (
+          {employees.map(e => (
             <div key={e._id} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: empColorMap[e._id] }} />
+              <div className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: e.color || '#2563eb' }} />
               <span className="text-xs text-gray-600">{e.name}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" style={{ height: 720 }}>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-2" style={{ height: 800 }}>
         <style>{`
-          .rbc-month-row { min-height: 120px !important; }
-          .rbc-event { margin-bottom: 2px !important; padding: 2px 5px !important; }
-          .rbc-show-more { font-size: 11px; color: #2563eb; }
+          .rbc-month-row { min-height: 140px !important; }
+          .rbc-event { margin-bottom: 1px !important; padding: 1px 4px !important; font-size: 11px !important; }
+          .rbc-show-more { display: none !important; }
+          .rbc-row-segment { padding: 0 1px !important; }
         `}</style>
         <Calendar
           localizer={localizer}
@@ -158,12 +144,15 @@ export default function Scheduler() {
           selectable
           onSelectEvent={openEdit}
           onNavigate={(date) => setCurrentDate(date)}
+          popup={false}
+          doShowMoreDrillDown={false}
           eventPropGetter={(event) => ({
             style: {
-              backgroundColor: empColorMap[event.employeeId] || '#2563eb',
-              borderRadius: '4px',
+              backgroundColor: event.employeeColor || '#2563eb',
+              borderRadius: '3px',
               fontSize: '11px',
               border: 'none',
+              padding: '1px 4px',
             }
           })}
         />

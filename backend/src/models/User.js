@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   designation: { type: String, trim: true },
   dateOfJoining: { type: Date },
   qualifications: { type: String },
+  color: { type: String, default: '#2563eb' },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 

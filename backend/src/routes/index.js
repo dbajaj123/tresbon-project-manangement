@@ -59,6 +59,7 @@ router.post('/clients/:id/stages', ...scoped, requireRole('admin', 'superadmin')
 router.put('/clients/:id/standards/:csId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.updateStandard);
 router.put('/clients/stages/:stageId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.updateStage);
 router.delete('/clients/stages/:stageId', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.deleteStage);
+router.delete('/clients/:id', ...scoped, requireRole('admin', 'superadmin'), clientCtrl.deleteClient);
 
 // ---- SCHEDULER ----
 router.get('/scheduler', ...scoped, schedulerCtrl.list);

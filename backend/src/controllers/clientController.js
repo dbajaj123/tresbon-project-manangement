@@ -154,3 +154,24 @@ exports.updateStandard = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// Delete a client and all associated data
+exports.deleteClient = async (req, res) => {
+  try {
+    const { ClientStandard, ClientStandardStage } = require('../models/ClientStandard');
+    const SchedulerEntry = require('../models/SchedulerEntry');
+    
+    // Delete all associated data
+    const standards = await ClientStandard.find({ clientId: req.params.id, companyId: req.companyId });
+    for (const cs of standards) {
+      await ClientStandardStage.deleteMany({ clientStandardId: cs._id });
+    }
+    await ClientStandard.deleteMany({ clientId: req.params.id, companyId: req.companyId });
+    await SchedulerEntry.deleteMany({ clientId: req.params.id, companyId: req.companyId });
+    await Client.findOneAndDelete({ _id: req.params.id, companyId: req.companyId });
+    
+    res.json({ message: 'Client and all associated data deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
