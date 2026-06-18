@@ -435,14 +435,15 @@ exports.exportClientPDF = async (req, res) => {
     }
 
     for (const s of data.standards) {
+      const daysProgress = s.totalAllotted > 0 ? Math.round((s.totalActual / s.totalAllotted) * 100) : 0;
       sectionTitle(doc, `Standard: ${s.standardName}`);
       keyValueBlock(doc, [
         ['Status', s.status.replace('_', ' ').toUpperCase()],
-        ['Completion', `${s.completionPercent}%  (${s.stagesComplete}/${s.stagesTotal} stages complete)`],
+        ['Stages', `${s.stagesComplete}/${s.stagesTotal} complete`],
         ['Contract', `${s.contractStartDate ? new Date(s.contractStartDate).toLocaleDateString('en-GB') : 'N/A'}  to  ${s.targetEndDate ? new Date(s.targetEndDate).toLocaleDateString('en-GB') : 'N/A'}`],
         ['Days', `Allotted ${s.totalAllotted}  •  Used ${s.totalActual}  •  Remaining ${s.remainingDays}`],
       ]);
-      barRow(doc, 'Overall progress', null, s.completionPercent, `${s.completionPercent}%`);
+      barRow(doc, 'Overall progress (days)', null, daysProgress, `${s.totalActual}/${s.totalAllotted} days (${daysProgress}%)`);
       doc.moveDown(0.3);
 
       table(doc,

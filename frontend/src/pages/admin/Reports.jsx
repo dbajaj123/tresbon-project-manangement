@@ -441,7 +441,7 @@ function ClientReportView({ data }) {
           </div>
           <div className="grid grid-cols-4 gap-2 mb-4">
             {[
-              { label: 'Completion', value: `${s.completionPercent}%` },
+              { label: 'Days Progress', value: `${s.totalAllotted > 0 ? Math.round((s.totalActual / s.totalAllotted) * 100) : 0}%` },
               { label: 'Days Allotted', value: s.totalAllotted },
               { label: 'Days Used', value: s.totalActual },
               { label: 'Remaining', value: s.remainingDays },
@@ -453,9 +453,9 @@ function ClientReportView({ data }) {
             ))}
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
-            <div className="bg-primary-500 h-2 rounded-full" style={{ width: `${s.completionPercent}%` }} />
+            <div className="bg-primary-500 h-2 rounded-full" style={{ width: `${s.totalAllotted > 0 ? Math.min(100, Math.round((s.totalActual / s.totalAllotted) * 100)) : 0}%` }} />
           </div>
-          <div className="text-xs text-gray-400 mb-4">{s.stagesComplete}/{s.stagesTotal} stages complete</div>
+          <div className="text-xs text-gray-400 mb-4">{s.totalActual}/{s.totalAllotted} days used • {s.stagesComplete}/{s.stagesTotal} stages complete</div>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50">
