@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-primary-900 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-primary-900 mb-1">AuditPro</h1>
+        <h1 className="text-2xl font-bold text-primary-900 mb-1">Tresbon</h1>
         <p className="text-gray-500 text-sm mb-6">Sign in to continue</p>
 
         {error && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{error}</div>}

@@ -27,7 +27,7 @@ export default function AdminLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-primary-900 text-white flex flex-col">
         <div className="p-6 border-b border-primary-700">
-          <h1 className="text-xl font-bold">AuditPro</h1>
+          <h1 className="text-xl font-bold">Tresbon</h1>
           <p className="text-xs text-primary-300 mt-1 truncate">{user?.companyId?.name}</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">

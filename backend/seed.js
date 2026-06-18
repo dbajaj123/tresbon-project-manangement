@@ -11,7 +11,7 @@ async function seed() {
   let superCompany = await Company.findOne({ email: 'superadmin@auditpro.internal' });
   if (!superCompany) {
     superCompany = await Company.create({
-      name: 'AuditPro System',
+      name: 'Tresbon System',
       email: 'superadmin@auditpro.internal',
     });
     console.log('Created system company');

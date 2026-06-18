@@ -18,7 +18,7 @@ export default function EmployeeLayout() {
     <div className="flex h-screen bg-gray-50">
       <aside className="w-64 bg-primary-900 text-white flex flex-col">
         <div className="p-6 border-b border-primary-700">
-          <h1 className="text-xl font-bold">AuditPro</h1>
+          <h1 className="text-xl font-bold">Tresbon</h1>
           <p className="text-xs text-primary-300 mt-1">{user?.companyId?.name}</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
