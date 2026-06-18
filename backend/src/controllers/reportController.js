@@ -296,11 +296,13 @@ function statCards(doc, cards) {
   doc.y = y + 64;
 }
 
-// Generic table. cols = [{label, key, width, align, render}]
+// Generic table. cols = [{label, key, width, align, render, wrap}]
 function table(doc, cols, rows, opts = {}) {
-  const rowH = opts.rowH || 18;
+  const minRowH = opts.rowH || 18;
   const headerH = 20;
-  let y = ensureSpace(doc, headerH + rowH);
+  const padTop = 5;
+  const padBottom = 5;
+  let y = ensureSpace(doc, headerH + minRowH);
 
   const drawHeader = () => {
     doc.rect(CONTENT.left, y, CONTENT.width, headerH).fill('#eef2ff');
@@ -317,17 +319,28 @@ function table(doc, cols, rows, opts = {}) {
   drawHeader();
 
   rows.forEach((r, idx) => {
+    // Pre-compute the rendered string for each column and the tallest cell height
+    const cellValues = cols.map(c => String(c.render ? c.render(r) : (r[c.key] ?? '-')));
+    doc.font('Helvetica').fontSize(8.5);
+    let maxH = minRowH - padTop - padBottom;
+    cols.forEach((c, i) => {
+      const h = doc.heightOfString(cellValues[i], { width: c.width - 8, align: c.align || 'left' });
+      if (h > maxH) maxH = h;
+    });
+    const rowH = maxH + padTop + padBottom;
+
+    // Page break if this row won't fit
     if (y + rowH > PAGE.height - PAGE.margin) {
       doc.addPage();
       y = PAGE.margin;
       drawHeader();
     }
+
     if (idx % 2 === 1) doc.rect(CONTENT.left, y, CONTENT.width, rowH).fill(ZEBRA);
     let x = CONTENT.left + 6;
-    cols.forEach(c => {
-      const val = c.render ? c.render(r) : (r[c.key] ?? '-');
+    cols.forEach((c, i) => {
       doc.fillColor(c.colorFn ? c.colorFn(r) : INK).font('Helvetica').fontSize(8.5)
-        .text(String(val), x, y + 5, { width: c.width - 8, align: c.align || 'left', lineBreak: false });
+        .text(cellValues[i], x, y + padTop, { width: c.width - 8, align: c.align || 'left' });
       x += c.width;
     });
     doc.fillColor(INK);
@@ -434,14 +447,12 @@ exports.exportClientPDF = async (req, res) => {
 
       table(doc,
         [
-          { label: 'Stage', width: 150, render: r => r.stageName },
+          { label: 'Stage', width: 165, render: r => r.stageName },
           { label: 'Allotted', width: 60, align: 'right', render: r => `${r.allottedManDays}d` },
           { label: 'Actual', width: 55, align: 'right', render: r => `${r.actualDays}d` },
           { label: 'Util %', width: 55, align: 'right', render: r => `${r.utilization}%`,
             colorFn: r => r.utilization > 100 ? '#dc2626' : r.utilization > 75 ? '#d97706' : '#16a34a' },
-          { label: 'Status', width: 75, render: r => r.status.replace('_', ' '),
-            colorFn: r => statusColor[r.status] || LIGHT },
-          { label: 'Employees', width: 120, render: r => r.employees && r.employees.length ? r.employees.map(e => `${e.name} (${e.days}d)`).join(', ') : '-' },
+          { label: 'Employees', width: 180, render: r => r.employees && r.employees.length ? r.employees.map(e => `${e.name} (${e.days}d)`).join(', ') : '-' },
         ],
         s.stages
       );
