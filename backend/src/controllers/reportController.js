@@ -41,8 +41,9 @@ async function buildClientReport(companyId, clientId, startDate, endDate) {
       .populate('stageId', 'name');
 
     const stagesWithActual = await Promise.all(stages.map(async (s) => {
-      // Count entries where stageId matches OR (stageId is null and clientId matches — unassigned days)
-      const stageFilter = { companyId, clientId, stageId: s.stageId._id };
+      // Scope strictly to this clientStandard so the same stage name reused
+      // under a different standard for this client does NOT get counted here.
+      const stageFilter = { companyId, clientId, clientStandardId: cs._id, stageId: s.stageId._id };
       if (startDate && endDate) stageFilter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
       const actualDays = await SchedulerEntry.countDocuments(stageFilter);
 
