@@ -264,7 +264,7 @@ function ensureSpace(doc, needed) {
 
 function brandHeader(doc, subtitle) {
   doc.rect(0, 0, PAGE.width, 76).fill(BRAND);
-  doc.fillColor('white').font('Helvetica-Bold').fontSize(22).text('Tresbon', PAGE.margin, 20);
+  doc.fillColor('white').font('Helvetica-Bold').fontSize(22).text('Tresbon Consulting Solutions', PAGE.margin, 20);
   doc.font('Helvetica').fontSize(11).fillColor('#c7d2fe').text(subtitle, PAGE.margin, 48);
   doc.fontSize(9).fillColor('#c7d2fe').text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, CONTENT.right - 200, 50, { width: 200, align: 'right' });
   doc.fillColor(INK).font('Helvetica');
@@ -610,11 +610,11 @@ exports.exportExpenseExcel = async (req, res) => {
     const data = await buildExpenseReport(req.companyId, filters);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Tresbon';
+    wb.creator = 'Tresbon Consulting Soltuions';
 
     // Summary sheet
     const ws1 = wb.addWorksheet('Summary');
-    ws1.addRow(['Tresbon - Expense Report']).font = { bold: true, size: 16 };
+    ws1.addRow(['Expense Report']).font = { bold: true, size: 16 };
     ws1.addRow([`Generated: ${new Date().toLocaleDateString()}`]);
     ws1.addRow([]);
     ws1.addRow(['Total Submitted', `₹${data.total}`]);
