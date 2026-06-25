@@ -26,7 +26,12 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { date, employeeId, clientId, notes } = req.body;
+    const { date, clientId, notes } = req.body;
+    // Employees can only create entries for themselves; admins can assign anyone
+    let employeeId = req.body.employeeId;
+    if (req.user.role === 'employee') {
+      employeeId = req.user._id;
+    }
     const clientStandardId = req.body.clientStandardId || null;
     const stageId = req.body.stageId || null;
 
