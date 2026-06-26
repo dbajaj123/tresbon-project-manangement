@@ -69,7 +69,10 @@ export default function Employees() {
   const handleEdit = async () => {
     setSaving(true);
     try {
-      await api.put(`/users/${editModal._id}`, editForm);
+      // Don't send an empty password field (would otherwise blank/rehash nothing)
+      const payload = { ...editForm };
+      if (!payload.password || !payload.password.trim()) delete payload.password;
+      await api.put(`/users/${editModal._id}`, payload);
       setEditModal(null);
       load();
     } catch (err) { alert(err.response?.data?.message || 'Error'); }
@@ -239,6 +242,13 @@ export default function Employees() {
           <FormField label="Calendar Colour">
             <ColorPicker value={editForm.color || '#2563eb'} onChange={c => setEditForm({ ...editForm, color: c })} />
           </FormField>
+          <div className="border-t border-gray-100 pt-4">
+            <FormField label="Reset Password">
+              <input type="password" value={editForm.password || ''} onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                className={inputCls} placeholder="Leave blank to keep current password" autoComplete="new-password" />
+            </FormField>
+            <p className="text-xs text-gray-400 mt-1">Enter a new password only if you want to change it for this employee.</p>
+          </div>
           <div className="p-3 bg-yellow-50 rounded-lg text-xs text-yellow-700">
             Setting a past date of leaving will automatically mark this employee as inactive and exclude them from reports and scheduler.
           </div>

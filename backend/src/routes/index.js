@@ -17,7 +17,6 @@ const reportCtrl = require('../controllers/reportController');
 // ---- AUTH ----
 router.post('/auth/login', authCtrl.login);
 router.post('/auth/refresh', authCtrl.refresh);
-router.post('/auth/reset-password', authCtrl.resetPassword);
 router.get('/auth/me', auth, authCtrl.me);
 
 // ---- COMPANIES (superadmin) ----
